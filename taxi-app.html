@@ -603,24 +603,30 @@ function renderRides() {
     const prevFare = idx > 0 ? Number(rides[idx-1].fare||0) : 0;
     const displayFare = toExTax(Number(ride.fare||0)) - toExTax(prevFare);
 
-    // No.1は4項目グリッド、それ以外は1行テキスト
+    // 全No.共通で4項目グリッド表示
     let summaryHtml = '';
-    if (idx === 0 && isDone) {
-      const s = calcNo1Summary(ride);
-      if (s) {
-        summaryHtml = `
-          <div class="ride-summary-grid">
-            <div class="ride-summary-item"><span class="label">売上 </span><span class="value">¥${s.fare.toLocaleString()}</span></div>
-            <div class="ride-summary-item"><span class="label">実働 </span><span class="value">${s.workStr}</span></div>
-            <div class="ride-summary-item"><span class="label">単価 </span><span class="value">¥${s.tanka.toLocaleString()}/h</span></div>
-            <div class="ride-summary-item"><span class="label">休憩 </span><span class="value">${s.totalBreak}分</span></div>
-          </div>`;
-      } else {
-        summaryHtml = `<span class="ride-summary done">¥${displayFare.toLocaleString()} / ${ride.endTime}</span>`;
+    if (isDone) {
+      const shiftStart = document.getElementById('shiftStart').value;
+      const prevEnd = idx === 0 ? shiftStart : (rides[idx-1].endTime || '');
+      let workStr = '---';
+      let tankaStr = '---';
+      if (prevEnd) {
+        let s = timeToMin(prevEnd), e = timeToMin(ride.endTime);
+        if (e < s) e += 1440;
+        const workMin = e - s - totalBreak;
+        if (workMin > 0) {
+          const hh = Math.floor(workMin/60), mm = workMin%60;
+          workStr = `${hh}h${String(mm).padStart(2,'0')}m`;
+          if (displayFare > 0) tankaStr = `¥${Math.round(displayFare/(workMin/60)).toLocaleString()}/h`;
+        }
       }
-    } else if (isDone) {
-      const text = `¥${displayFare.toLocaleString()} / ${ride.endTime}${totalBreak > 0 ? ` / 休${totalBreak}分` : ''}`;
-      summaryHtml = `<span class="ride-summary done">${text}</span>`;
+      summaryHtml = `
+        <div class="ride-summary-grid">
+          <div class="ride-summary-item"><span class="label">売上 </span><span class="value">¥${displayFare.toLocaleString()}</span></div>
+          <div class="ride-summary-item"><span class="label">実働 </span><span class="value">${workStr}</span></div>
+          <div class="ride-summary-item"><span class="label">単価 </span><span class="value">${tankaStr}</span></div>
+          <div class="ride-summary-item"><span class="label">休憩 </span><span class="value">${totalBreak}分</span></div>
+        </div>`;
     } else {
       summaryHtml = `<span class="ride-summary">未入力</span>`;
     }
