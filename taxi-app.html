@@ -901,7 +901,11 @@ async function submitToSheets() {
     showToast(`✅ ${sheetName} に記録しました！`);
     btn.textContent = '✅ 送信完了！';
     clearState();
-    const nextNum = Number(shiftNum) + 1;
+    // 締め日を過ぎていたら乗務番号を1にリセット
+    const todayDay = now.getDate();
+    const nextSheetName = calcSheetName(now, closingDay);
+    const currentSheetName = sheetName;
+    const nextNum = nextSheetName !== currentSheetName ? 1 : Number(shiftNum) + 1;
     document.getElementById('shiftNum').value = nextNum;
     settings.shiftNum = nextNum;
     localStorage.setItem('taxiSettings2', JSON.stringify(settings));
