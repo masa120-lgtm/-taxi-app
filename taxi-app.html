@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -121,17 +122,29 @@
     user-select: none;
   }
   .ride-num { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 500; color: var(--accent); }
-  .ride-summary { font-size: 12px; color: var(--muted); font-family: 'DM Mono', monospace; }
+  .ride-summary { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; flex: 1; margin: 0 8px; }
   .ride-summary.done { color: var(--green); }
-  .ride-chevron { font-size: 10px; color: var(--muted); transition: transform 0.2s; }
+  .ride-chevron { font-size: 10px; color: var(--muted); transition: transform 0.2s; flex-shrink: 0; }
   .ride-chevron.open { transform: rotate(180deg); }
+
+  /* No.1専用サマリーグリッド */
+  .ride-summary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 10px;
+    flex: 1;
+    margin: 0 8px;
+  }
+  .ride-summary-item { font-size: 10px; font-family: 'DM Mono', monospace; }
+  .ride-summary-item .label { color: var(--muted); }
+  .ride-summary-item .value { color: var(--green); font-weight: 500; }
 
   .ride-body { display: none; padding: 0 14px 14px; border-top: 1px solid var(--border); }
   .ride-body.open { display: block; }
 
   .ride-fields { display: flex; gap: 10px; margin-top: 12px; }
   .ride-field { flex: 1; }
-  .ride-field label { font-size: 10px; color: var(--muted); letter-spacing: 0.06em; display: block; margin-bottom: 4px; }
+  .ride-field label { font-size: 11px; color: var(--muted); letter-spacing: 0.06em; display: block; margin-bottom: 4px; }
   .ride-input {
     width: 100%;
     background: var(--bg);
@@ -148,7 +161,6 @@
   }
   .ride-input:focus { border-color: var(--accent); }
   .ride-input.fare-input { font-size: 16px; font-weight: 500; }
-  .fare-prefix { font-size: 10px; color: var(--muted); margin-bottom: 2px; }
 
   .break-section {
     margin-top: 12px;
@@ -162,12 +174,7 @@
     justify-content: space-between;
     margin-bottom: 8px;
   }
-  .break-section-title {
-    font-size: 11px;
-    color: var(--blue);
-    font-weight: 700;
-    letter-spacing: 0.06em;
-  }
+  .break-section-title { font-size: 11px; color: var(--blue); font-weight: 700; letter-spacing: 0.06em; }
   .break-total-badge {
     font-family: 'DM Mono', monospace;
     font-size: 11px;
@@ -176,20 +183,9 @@
     padding: 2px 8px;
     border-radius: 20px;
   }
-
   .break-list { display: flex; flex-direction: column; gap: 6px; }
-
-  .break-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .break-item-label {
-    font-size: 11px;
-    color: var(--muted);
-    font-family: 'DM Mono', monospace;
-    min-width: 28px;
-  }
+  .break-item { display: flex; align-items: center; gap: 8px; }
+  .break-item-label { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; min-width: 28px; }
   .break-input {
     flex: 1;
     background: var(--bg);
@@ -205,20 +201,8 @@
     text-align: right;
   }
   .break-input:focus { border-color: var(--blue); }
-  .break-input-unit {
-    font-size: 11px;
-    color: var(--muted);
-    min-width: 18px;
-  }
-  .break-remove {
-    background: none;
-    border: none;
-    color: var(--muted);
-    font-size: 16px;
-    cursor: pointer;
-    padding: 4px;
-    line-height: 1;
-  }
+  .break-input-unit { font-size: 11px; color: var(--muted); min-width: 18px; }
+  .break-remove { background: none; border: none; color: var(--muted); font-size: 16px; cursor: pointer; padding: 4px; line-height: 1; }
   .break-add-btn {
     width: 100%;
     background: transparent;
@@ -301,12 +285,7 @@
   }
   .break-timeline-title { font-size: 11px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px; }
   .timeline-list { display: flex; flex-direction: column; gap: 6px; }
-  .timeline-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 12px;
-  }
+  .timeline-item { display: flex; align-items: center; gap: 10px; font-size: 12px; }
   .timeline-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--blue); flex-shrink: 0; }
   .timeline-text { color: var(--text); font-family: 'DM Mono', monospace; }
   .timeline-min { color: var(--blue); margin-left: auto; font-family: 'DM Mono', monospace; font-size: 12px; }
@@ -500,6 +479,14 @@
 let rides = [];
 let settings = JSON.parse(localStorage.getItem('taxiSettings2') || '{}');
 
+const TAX_RATE = 0.10;
+function toExTax(v) { return Math.round(Number(v) / (1 + TAX_RATE)); }
+function timeToMin(t) {
+  if (!t) return 0;
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+}
+
 function init() {
   const now = new Date();
   const days = ['日','月','火','水','木','金','土'];
@@ -568,18 +555,23 @@ function updateBreak(rideId, breakId, val) {
     const total = ride.breaks.reduce((s,b) => s + (Number(b.min)||0), 0);
     const badge = document.getElementById(`breaktotal-${rideId}`);
     if (badge) badge.textContent = total > 0 ? `合計 ${total}分` : '0分';
-    const card = document.getElementById(`card-${rideId}`);
-    if (card) {
-      const summaryEl = card.querySelector('.ride-summary');
-      if (summaryEl && ride.fare && ride.endTime) {
-        const rideIdx = rides.indexOf(ride);
-        const prevF = rideIdx > 0 ? Number(rides[rideIdx-1].fare || 0) : 0;
-        const dispF = toExTax(Number(ride.fare || 0)) - toExTax(prevF);
-        summaryEl.textContent = `¥${dispF.toLocaleString()} / ${ride.endTime}${total > 0 ? ` / 休${total}分` : ''}`;
-      }
-    }
     updateAll();
   }
+}
+
+function calcNo1Summary(ride) {
+  const shiftStart = document.getElementById('shiftStart').value;
+  if (!shiftStart || !ride.endTime || !ride.fare) return null;
+  const fare = toExTax(Number(ride.fare));
+  const totalBreak = ride.breaks.reduce((s,b) => s+(Number(b.min)||0), 0);
+  let s = timeToMin(shiftStart), e = timeToMin(ride.endTime);
+  if (e < s) e += 1440;
+  const workMin = e - s - totalBreak;
+  if (workMin <= 0) return null;
+  const hh = Math.floor(workMin/60);
+  const mm = workMin % 60;
+  const tanka = Math.round(fare / (workMin/60));
+  return { fare, workStr: `${hh}h${String(mm).padStart(2,'0')}m`, tanka, totalBreak };
 }
 
 function renderRides() {
@@ -587,41 +579,65 @@ function renderRides() {
   list.innerHTML = '';
   rides.forEach((ride, idx) => {
     const isDone = ride.fare && ride.endTime;
-    const totalBreak = ride.breaks.reduce((s,b) => s + (Number(b.min)||0), 0);
+    const totalBreak = ride.breaks.reduce((s,b) => s+(Number(b.min)||0), 0);
     const div = document.createElement('div');
     div.className = `ride-card${isDone ? ' completed' : ''}`;
     div.id = `card-${ride.id}`;
 
-    const prevFare = idx > 0 ? Number(rides[idx-1].fare || 0) : 0;
-    const displayFare = toExTax(Number(ride.fare || 0)) - toExTax(prevFare);
-    let summaryText = '';
-    if (isDone) {
-      summaryText = `¥${displayFare.toLocaleString()} / ${ride.endTime}${totalBreak > 0 ? ` / 休${totalBreak}分` : ''}`;
-    } else if (ride.fare) {
-      summaryText = `¥${displayFare.toLocaleString()}`;
+    const prevFare = idx > 0 ? Number(rides[idx-1].fare||0) : 0;
+    const displayFare = toExTax(Number(ride.fare||0)) - toExTax(prevFare);
+
+    // No.1は4項目グリッド、それ以外は1行テキスト
+    let summaryHtml = '';
+    if (idx === 0 && isDone) {
+      const s = calcNo1Summary(ride);
+      if (s) {
+        summaryHtml = `
+          <div class="ride-summary-grid">
+            <div class="ride-summary-item"><span class="label">売上 </span><span class="value">¥${s.fare.toLocaleString()}</span></div>
+            <div class="ride-summary-item"><span class="label">実働 </span><span class="value">${s.workStr}</span></div>
+            <div class="ride-summary-item"><span class="label">単価 </span><span class="value">¥${s.tanka.toLocaleString()}/h</span></div>
+            <div class="ride-summary-item"><span class="label">休憩 </span><span class="value">${s.totalBreak}分</span></div>
+          </div>`;
+      } else {
+        summaryHtml = `<span class="ride-summary done">¥${displayFare.toLocaleString()} / ${ride.endTime}</span>`;
+      }
+    } else if (isDone) {
+      const text = `¥${displayFare.toLocaleString()} / ${ride.endTime}${totalBreak > 0 ? ` / 休${totalBreak}分` : ''}`;
+      summaryHtml = `<span class="ride-summary done">${text}</span>`;
     } else {
-      summaryText = '入力待ち';
+      summaryHtml = `<span class="ride-summary">未入力</span>`;
     }
+
+    const breaksHtml = ride.breaks.map((brk, bi) => `
+      <div class="break-item">
+        <span class="break-item-label">${bi+1}回目</span>
+        <input class="break-input" type="number" inputmode="numeric"
+          value="${brk.min}" placeholder="0"
+          oninput="updateBreak(${ride.id},${brk.id},this.value)">
+        <span class="break-input-unit">分</span>
+        <button class="break-remove" onclick="removeBreak(${ride.id},${brk.id})">×</button>
+      </div>
+    `).join('');
 
     div.innerHTML = `
       <div class="ride-header" onclick="toggleRide(${ride.id})">
-        <span class="ride-num">No.${idx + 1}</span>
-        <span class="ride-summary${isDone ? ' done' : ''}">${summaryText}</span>
+        <span class="ride-num">No.${idx+1}</span>
+        ${summaryHtml}
         <span class="ride-chevron" id="chevron-${ride.id}">▼</span>
       </div>
       <div class="ride-body" id="body-${ride.id}">
         <div class="ride-fields">
           <div class="ride-field">
-            <div class="fare-prefix">メーター累計金額（税込）</div>
-            <label>売上</label>
+            <label>メーター累計(税込)</label>
             <input class="ride-input fare-input" type="number" inputmode="numeric"
               value="${ride.fare}" placeholder="0"
-              oninput="updateRide(${ride.id}, 'fare', this.value)">
+              oninput="updateRide(${ride.id},'fare',this.value)">
           </div>
           <div class="ride-field">
             <label>終了時刻</label>
             <input class="ride-input" type="time" value="${ride.endTime}"
-              onchange="updateRide(${ride.id}, 'endTime', this.value)">
+              onchange="updateRide(${ride.id},'endTime',this.value)">
           </div>
         </div>
         <div class="break-section">
@@ -630,87 +646,70 @@ function renderRides() {
             <span class="break-total-badge" id="breaktotal-${ride.id}">${totalBreak > 0 ? `合計 ${totalBreak}分` : '0分'}</span>
           </div>
           <div class="break-list">
-            ${ride.breaks.map((brk, bi) => `
-              <div class="break-item">
-                <span class="break-item-label">${bi+1}回</span>
-                <input class="break-input" type="number" inputmode="numeric"
-                  value="${brk.min}" placeholder="0"
-                  oninput="updateBreak(${ride.id}, ${brk.id}, this.value)">
-                <span class="break-input-unit">分</span>
-                <button class="break-remove" onclick="removeBreak(${ride.id}, ${brk.id})">×</button>
-              </div>
-            `).join('')}
+            ${breaksHtml || '<div style="font-size:11px;color:var(--muted);">休憩なし</div>'}
           </div>
           <button class="break-add-btn" onclick="addBreak(${ride.id})">＋ 休憩を追加</button>
         </div>
         <div class="live-calc" id="live-${ride.id}">
-          <span class="live-label">この組の単価</span>
+          <span class="live-label">単価</span>
           <span class="live-value">---</span>
         </div>
         <div class="action-row">
-          <button class="btn btn-now" onclick="setNow(${ride.id})">⏱ 現在時刻</button>
+          <button class="btn btn-now" onclick="setNow(${ride.id})">🕐 今すぐ</button>
           <button class="btn btn-done" onclick="completeRide(${ride.id})">✓ 確定</button>
-          ${idx > 0 ? `<button class="btn btn-del" onclick="removeRide(${ride.id})">✕</button>` : ''}
+          ${rides.length > 1 ? `<button class="btn btn-now btn-del" onclick="removeRide(${ride.id})">✕</button>` : ''}
         </div>
       </div>
     `;
     list.appendChild(div);
   });
+
   document.getElementById('ridesCount').textContent = `${rides.length} / 10組`;
+  rides.forEach(r => calcLive(r.id));
 }
 
 function toggleRide(id) {
   const body = document.getElementById(`body-${id}`);
-  const chevron = document.getElementById(`chevron-${id}`);
-  body.classList.toggle('open');
-  chevron.classList.toggle('open');
+  const chev = document.getElementById(`chevron-${id}`);
+  const isOpen = body.classList.contains('open');
+  document.querySelectorAll('.ride-body').forEach(b => b.classList.remove('open'));
+  document.querySelectorAll('.ride-chevron').forEach(c => c.classList.remove('open'));
+  if (!isOpen) { body.classList.add('open'); chev.classList.add('open'); }
 }
 
 function openRide(id) {
-  document.getElementById(`body-${id}`).classList.add('open');
-  document.getElementById(`chevron-${id}`).classList.add('open');
+  document.querySelectorAll('.ride-body').forEach(b => b.classList.remove('open'));
+  document.querySelectorAll('.ride-chevron').forEach(c => c.classList.remove('open'));
+  const body = document.getElementById(`body-${id}`);
+  const chev = document.getElementById(`chevron-${id}`);
+  if (body) { body.classList.add('open'); chev.classList.add('open'); }
 }
 
 function updateRide(id, field, val) {
   const ride = rides.find(r => r.id === id);
-  if (ride) {
-    ride[field] = val;
-    calcLive(id);
-    updateSummary();
-    saveState();
-  }
+  if (ride) { ride[field] = val; updateAll(); }
 }
 
 function calcLive(id) {
-  const idx = rides.findIndex(r => r.id === id);
-  if (idx < 0) return;
-  const ride = rides[idx];
+  const ride = rides.find(r => r.id === id);
+  if (!ride) return;
+  const idx = rides.indexOf(ride);
   const liveEl = document.getElementById(`live-${id}`);
   if (!liveEl) return;
   const valEl = liveEl.querySelector('.live-value');
 
   const shiftStart = document.getElementById('shiftStart').value;
-  const prevEnd = idx === 0 ? shiftStart : rides[idx-1].endTime;
-  const thisEnd = ride.endTime;
-  const prevFare = idx === 0 ? 0 : Number(rides[idx-1].fare || 0);
-  const thisFare = Number(ride.fare || 0);
-  const rideFare = toExTax(thisFare) - toExTax(prevFare);
-  const rideBreak = ride.breaks.reduce((s,b) => s + (Number(b.min)||0), 0);
+  const prevEnd = idx === 0 ? shiftStart : (rides[idx-1].endTime || '');
+  const prevFare = idx === 0 ? 0 : Number(rides[idx-1].fare||0);
+  const thisFare = toExTax(Number(ride.fare||0)) - toExTax(prevFare);
+  const rideBreak = ride.breaks.reduce((s,b) => s+(Number(b.min)||0), 0);
 
-  if (!prevEnd || !thisEnd || rideFare <= 0) {
-    valEl.textContent = '---';
-    return;
-  }
-  let start = timeToMin(prevEnd);
-  let end = timeToMin(thisEnd);
-  if (end < start) end += 1440;
-  const workMin = end - start - rideBreak;
-  if (workMin <= 0) {
-    valEl.textContent = '---';
-    return;
-  }
-  const tanka = Math.round(rideFare / (workMin / 60));
-  valEl.textContent = `¥${tanka.toLocaleString()}/h`;
+  if (!prevEnd || !ride.endTime || thisFare <= 0) { valEl.textContent = '---'; return; }
+  let s = timeToMin(prevEnd), e = timeToMin(ride.endTime);
+  if (e < s) e += 1440;
+  const workMin = e - s - rideBreak;
+  if (workMin <= 0) { valEl.textContent = '---'; return; }
+  valEl.textContent = `¥${Math.round(thisFare/(workMin/60)).toLocaleString()}/h`;
 }
 
 function setNow(id) {
@@ -757,35 +756,28 @@ function loadState() {
     if (state.shiftNum) document.getElementById('shiftNum').value = state.shiftNum;
     if (state.shiftStart) document.getElementById('shiftStart').value = state.shiftStart;
     if (state.shiftEnd) document.getElementById('shiftEnd').value = state.shiftEnd;
-    if (state.rides && state.rides.length > 0) {
-      rides = state.rides;
-      return true;
-    }
+    if (state.rides && state.rides.length > 0) { rides = state.rides; return true; }
   } catch(e) {}
   return false;
 }
 
-function clearState() {
-  localStorage.removeItem('taxiState');
-}
+function clearState() { localStorage.removeItem('taxiState'); }
 
 function updateSummary() {
   const shiftStart = document.getElementById('shiftStart').value;
   const shiftEnd = document.getElementById('shiftEnd').value;
   const fareValues = rides.map(r => Number(r.fare||0)).filter(v => v > 0);
   const totalFare = fareValues.length > 0 ? toExTax(Math.max(...fareValues)) : 0;
-  const totalBreak = rides.reduce((s, r) => s + r.breaks.reduce((ss, b) => ss + (Number(b.min)||0), 0), 0);
+  const totalBreak = rides.reduce((s,r) => s + r.breaks.reduce((ss,b) => ss+(Number(b.min)||0), 0), 0);
 
   document.getElementById('summaryFare').textContent = `¥${totalFare.toLocaleString()}`;
   document.getElementById('summaryBreak').textContent = `${totalBreak}分`;
 
   if (shiftStart && shiftEnd) {
-    let start = timeToMin(shiftStart);
-    let end = timeToMin(shiftEnd);
+    let start = timeToMin(shiftStart), end = timeToMin(shiftEnd);
     if (end < start) end += 1440;
     const workMin = end - start - totalBreak;
-    const hh = Math.floor(workMin/60);
-    const mm = workMin % 60;
+    const hh = Math.floor(workMin/60), mm = workMin % 60;
     document.getElementById('summaryWork').textContent = `${hh}h${mm}m`;
     if (workMin > 0 && totalFare > 0) {
       document.getElementById('summaryTanka').textContent = `¥${Math.round(totalFare/(workMin/60)).toLocaleString()}/h`;
@@ -803,17 +795,13 @@ function updateTimeline() {
   const items = [];
   rides.forEach((ride, idx) => {
     ride.breaks.forEach((brk, bi) => {
-      if (Number(brk.min) > 0) {
-        items.push({ label: `No.${idx+1}(${bi+1}回目)`, min: Number(brk.min) });
-      }
+      if (Number(brk.min) > 0) items.push({ label: `No.${idx+1}(${bi+1}回目)`, min: Number(brk.min) });
     });
   });
-
   if (items.length === 0) {
     tl.innerHTML = '<div class="timeline-empty">休憩を入力すると表示されます</div>';
     return;
   }
-
   tl.innerHTML = items.map(item => `
     <div class="timeline-item">
       <div class="timeline-dot"></div>
@@ -827,13 +815,8 @@ function calcSheetName(date, closingDay) {
   const year = date.getFullYear();
   const month = date.getMonth() + 1;
   const day = date.getDate();
-  
   if (day > closingDay) {
-    if (month === 12) {
-      return `${year + 1}/1`;
-    } else {
-      return `${year}/${month + 1}`;
-    }
+    return month === 12 ? `${year+1}/1` : `${year}/${month+1}`;
   } else {
     return `${year}/${month}`;
   }
@@ -846,7 +829,7 @@ async function submitToSheets() {
   const shiftStart = document.getElementById('shiftStart').value;
   const shiftEnd = document.getElementById('shiftEnd').value;
   const shiftNum = document.getElementById('shiftNum').value;
-  const closingDay = Number(document.getElementById('closingDay').value) || 12;
+  const closingDay = Number(settings.closingDay) || 12;
 
   if (!shiftStart) { showToast('開始時刻を入力してください', 'error'); return; }
   const completedRides = rides.filter(r => r.fare);
@@ -861,7 +844,7 @@ async function submitToSheets() {
   const totalBreak = rides.reduce((s,r) => s + r.breaks.reduce((ss,b) => ss+(Number(b.min)||0), 0), 0);
 
   const payload = {
-    sheetName: sheetName,
+    sheetName,
     shiftNum: Number(shiftNum),
     date: dateStr,
     shiftStart,
@@ -887,7 +870,7 @@ async function submitToSheets() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-    showToast(`✅ ${sheetName} シートに記録しました！`);
+    showToast(`✅ ${sheetName} に記録しました！`);
     btn.textContent = '✅ 送信完了！';
     clearState();
     const nextNum = Number(shiftNum) + 1;
@@ -915,15 +898,6 @@ function saveSettings() {
   showToast('設定を保存しました');
 }
 
-function timeToMin(t) {
-  if (!t) return 0;
-  const [h, m] = t.split(':').map(Number);
-  return h * 60 + m;
-}
-
-const TAX_RATE = 0.10;
-function toExTax(v) { return Math.round(Number(v) / (1 + TAX_RATE)); }
-
 function showToast(msg, type = 'success') {
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -933,6 +907,5 @@ function showToast(msg, type = 'success') {
 
 document.addEventListener('DOMContentLoaded', init);
 </script>
-
 </body>
 </html>
