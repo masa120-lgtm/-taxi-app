@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>乗務記録</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500;700&display=swap');
+
+  :root {
+    --bg: #0d0d0f;
+    --surface: #161618;
+    --surface2: #1e1e21;
+    --border: #2a2a2e;
+    --accent: #f0b429;
+    --accent2: #f87171;
+    --green: #4ade80;
+    --blue: #60a5fa;
+    --text: #f0f0f0;
+    --muted: #6b6b72;
+    --radius: 12px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    min-height: 100vh;
+    padding-bottom: 40px;
+  }
+
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 20px 14px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .header-left { display: flex; align-items: center; gap: 10px; }
+  .header-icon { font-size: 22px; }
+  .header-title { font-size: 16px; font-weight: 700; letter-spacing: 0.02em; }
+  .header-sub { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; }
+  .shift-badge {
+    background: var(--accent);
+    color: #000;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: 'DM Mono', monospace;
+    padding: 4px 10px;
+    border-radius: 20px;
+    letter-spacing: 0.05em;
+  }
+  .settings-icon { background: none; border: none; color: var(--muted); font-size: 18px; cursor: pointer; padding: 4px; }
+
+  .main { padding: 16px 16px 0; }
+
+  .shift-info {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 14px;
+    display: flex;
+    gap: 12px;
+  }
+  .shift-field { flex: 1; }
+  .shift-field label { font-size: 11px; color: var(--muted); letter-spacing: 0.06em; display: block; margin-bottom: 5px; }
+  .shift-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 14px;
+    padding: 9px 10px;
+    font-family: 'DM Mono', monospace;
+    outline: none;
+    transition: border-color 0.2s;
+    -webkit-appearance: none;
+  }
+  .shift-input:focus { border-color: var(--accent); }
+
+  .rides-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .rides-title { font-size: 13px; font-weight: 700; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+  .rides-count {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    background: rgba(240,180,41,0.1);
+    padding: 3px 10px;
+    border-radius: 20px;
+  }
+
+  .ride-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 8px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .ride-card.completed { border-color: #374151; opacity: 0.75; }
+
+  .ride-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .ride-num { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 500; color: var(--accent); }
+  .ride-summary { font-size: 12px; color: var(--muted); font-family: 'DM Mono', monospace; }
+  .ride-summary.done { color: var(--green); }
+  .ride-chevron { font-size: 10px; color: var(--muted); transition: transform 0.2s; }
+  .ride-chevron.open { transform: rotate(180deg); }
+
+  .ride-body { display: none; padding: 0 14px 14px; border-top: 1px solid var(--border); }
+  .ride-body.open { display: block; }
+
+  /* 売上・終了時刻 */
+  .ride-fields { display: flex; gap: 10px; margin-top: 12px; }
+  .ride-field { flex: 1; }
+  .ride-field label { font-size: 10px; color: var(--muted); letter-spacing: 0.06em; display: block; margin-bottom: 4px; }
+  .ride-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 15px;
+    padding: 10px;
+    font-family: 'DM Mono', monospace;
+    outline: none;
+    transition: border-color 0.2s;
+    -webkit-appearance: none;
+    text-align: right;
+  }
+  .ride-input:focus { border-color: var(--accent); }
+  .ride-input.fare-input { font-size: 16px; font-weight: 500; }
+  .fare-prefix { font-size: 10px; color: var(--muted); margin-bottom: 2px; }
+
+  /* 休憩セクション */
+  .break-section {
+    margin-top: 12px;
+    background: var(--surface2);
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  .break-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .break-section-title {
+    font-size: 11px;
+    color: var(--blue);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+  }
+  .break-total-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--blue);
+    background: rgba(96,165,250,0.1);
+    padding: 2px 8px;
+    border-radius: 20px;
+  }
+
+  .break-list { display: flex; flex-direction: column; gap: 6px; }
+
+  .break-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .break-item-label {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    min-width: 28px;
+  }
+  .break-input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 14px;
+    padding: 8px 10px;
+    font-family: 'DM Mono', monospace;
+    outline: none;
+    transition: border-color 0.2s;
+    -webkit-appearance: none;
+    text-align: right;
+  }
+  .break-input:focus { border-color: var(--blue); }
+  .break-input-unit {
+    font-size: 11px;
+    color: var(--muted);
+    min-width: 18px;
+  }
+  .break-remove {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 16px;
+    cursor: pointer;
+    padding: 4px;
+    line-height: 1;
+  }
+  .break-add-btn {
+    width: 100%;
+    background: transparent;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    color: var(--muted);
+    font-size: 12px;
+    font-family: 'Noto Sans JP', sans-serif;
+    padding: 7px;
+    cursor: pointer;
+    margin-top: 6px;
+    transition: all 0.15s;
+  }
+  .break-add-btn:active { border-color: var(--blue); color: var(--blue); }
+
+  /* ライブ計算 */
+  .live-calc {
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-top: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .live-label { font-size: 11px; color: var(--muted); }
+  .live-value { font-family: 'DM Mono', monospace; font-size: 14px; font-weight: 500; color: var(--accent); }
+
+  .action-row { display: flex; gap: 8px; margin-top: 12px; }
+  .btn {
+    flex: 1;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: 'Noto Sans JP', sans-serif;
+    padding: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn-done { background: var(--green); color: #000; }
+  .btn-now { background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-size: 12px; }
+  .btn-del { flex: 0.5 !important; color: var(--accent2) !important; background: var(--surface2) !important; border: 1px solid var(--border) !important; }
+
+  .add-btn {
+    width: 100%;
+    background: transparent;
+    border: 1.5px dashed var(--border);
+    border-radius: var(--radius);
+    color: var(--muted);
+    font-size: 13px;
+    font-family: 'Noto Sans JP', sans-serif;
+    padding: 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-bottom: 14px;
+  }
+  .add-btn:active { background: var(--surface); border-color: var(--accent); color: var(--accent); }
+
+  .summary-bar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+  .summary-title { font-size: 11px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 12px; }
+  .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .summary-item-label { font-size: 10px; color: var(--muted); margin-bottom: 3px; }
+  .summary-item-val { font-family: 'DM Mono', monospace; font-size: 18px; font-weight: 500; }
+  .summary-item-val.highlight { color: var(--accent); }
+  .summary-item-val.good { color: var(--green); }
+
+  /* 休憩タイムライン */
+  .break-timeline {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 14px;
+  }
+  .break-timeline-title { font-size: 11px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px; }
+  .timeline-list { display: flex; flex-direction: column; gap: 6px; }
+  .timeline-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+  }
+  .timeline-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--blue); flex-shrink: 0; }
+  .timeline-text { color: var(--text); font-family: 'DM Mono', monospace; }
+  .timeline-min { color: var(--blue); margin-left: auto; font-family: 'DM Mono', monospace; font-size: 12px; }
+  .timeline-empty { font-size: 12px; color: var(--muted); }
+
+  .submit-section { margin-bottom: 14px; }
+  .submit-btn {
+    width: 100%;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 15px;
+    font-weight: 700;
+    font-family: 'Noto Sans JP', sans-serif;
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .submit-btn:active { transform: scale(0.98); background: #d9a020; }
+  .submit-btn:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
+
+  .toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--green);
+    color: #000;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 12px 24px;
+    border-radius: 30px;
+    transition: transform 0.3s ease;
+    z-index: 1000;
+    white-space: nowrap;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.error { background: var(--accent2); color: #fff; }
+
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 200;
+    align-items: flex-end;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border-radius: 16px 16px 0 0;
+    width: 100%;
+    padding: 20px 20px 40px;
+    border: 1px solid var(--border);
+  }
+  .modal-title { font-size: 15px; font-weight: 700; margin-bottom: 16px; }
+  .modal-field { margin-bottom: 14px; }
+  .modal-field label { font-size: 11px; color: var(--muted); display: block; margin-bottom: 6px; letter-spacing: 0.06em; }
+  .modal-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 13px;
+    padding: 10px 12px;
+    font-family: 'DM Mono', monospace;
+    outline: none;
+  }
+  .modal-input:focus { border-color: var(--accent); }
+  .modal-hint { font-size: 11px; color: var(--muted); margin-top: 4px; line-height: 1.5; }
+  .modal-btn {
+    width: 100%;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 14px;
+    cursor: pointer;
+    font-family: 'Noto Sans JP', sans-serif;
+    margin-top: 4px;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <span class="header-icon">🚕</span>
+    <div>
+      <div class="header-title">乗務記録</div>
+      <div class="header-sub" id="todayDate">--</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <span class="shift-badge" id="shiftBadge">乗務 #1</span>
+    <button class="settings-icon" onclick="openModal()">⚙️</button>
+  </div>
+</div>
+
+<div class="main">
+
+  <div class="shift-info">
+    <div class="shift-field">
+      <label>乗務番号</label>
+      <input class="shift-input" type="number" id="shiftNum" value="1" min="1" onchange="updateBadge()">
+    </div>
+    <div class="shift-field">
+      <label>開始時刻</label>
+      <input class="shift-input" type="time" id="shiftStart" onchange="updateAll()">
+    </div>
+    <div class="shift-field">
+      <label>終了時刻</label>
+      <input class="shift-input" type="time" id="shiftEnd" onchange="updateSummary()">
+    </div>
+  </div>
+
+  <div class="rides-header">
+    <span class="rides-title">乗車記録</span>
+    <span class="rides-count" id="ridesCount">0 / 10組</span>
+  </div>
+
+  <div id="ridesList"></div>
+
+  <button class="add-btn" onclick="addRide()">＋ 組を追加</button>
+
+  <!-- 休憩タイムライン -->
+  <div class="break-timeline">
+    <div class="break-timeline-title">🕐 休憩タイムライン</div>
+    <div class="timeline-list" id="timelineList">
+      <div class="timeline-empty">休憩を入力すると表示されます</div>
+    </div>
+  </div>
+
+  <div class="summary-bar">
+    <div class="summary-title">今回のサマリー</div>
+    <div class="summary-grid">
+      <div class="summary-item">
+        <div class="summary-item-label">累計売上</div>
+        <div class="summary-item-val highlight" id="summaryFare">¥0</div>
+      </div>
+      <div class="summary-item">
+        <div class="summary-item-label">時間単価</div>
+        <div class="summary-item-val good" id="summaryTanka">---</div>
+      </div>
+      <div class="summary-item">
+        <div class="summary-item-label">実働時間</div>
+        <div class="summary-item-val" id="summaryWork">--:--</div>
+      </div>
+      <div class="summary-item">
+        <div class="summary-item-label">休憩合計</div>
+        <div class="summary-item-val" id="summaryBreak" style="color:var(--blue)">--分</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="submit-section">
+    <button class="submit-btn" id="submitBtn" onclick="submitToSheets()">
+      📊 Googleスプレッドシートに記録
+    </button>
+  </div>
+
+</div>
+
+<!-- 設定モーダル -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModalOnOverlay(event)">
+  <div class="modal">
+    <div class="modal-title">⚙️ 設定</div>
+    <div class="modal-field">
+      <label>GOOGLE APPS SCRIPT URL</label>
+      <input class="modal-input" type="url" id="gasUrl" placeholder="https://script.google.com/macros/s/...">
+      <div class="modal-hint">GASのウェブアプリURLを貼り付けてください</div>
+    </div>
+    <div class="modal-field">
+      <label>スプレッドシートID</label>
+      <input class="modal-input" type="text" id="sheetId" placeholder="URLの /d/〇〇〇/edit の〇〇〇部分">
+    </div>
+    <button class="modal-btn" onclick="saveSettings()">保存</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let rides = [];
+let settings = JSON.parse(localStorage.getItem('taxiSettings2') || '{}');
+
+function init() {
+  const now = new Date();
+  const days = ['日','月','火','水','木','金','土'];
+  document.getElementById('todayDate').textContent =
+    `${now.getMonth()+1}月${now.getDate()}日（${days[now.getDay()]}）`;
+  const hh = String(now.getHours()).padStart(2,'0');
+  const mm = String(now.getMinutes()).padStart(2,'0');
+  document.getElementById('shiftStart').value = `${hh}:${mm}`;
+  if (settings.gasUrl) document.getElementById('gasUrl').value = settings.gasUrl;
+  if (settings.sheetId) document.getElementById('sheetId').value = settings.sheetId;
+  if (settings.shiftNum) document.getElementById('shiftNum').value = settings.shiftNum;
+  const restored = loadState();
+  if (!restored) addRide();
+  renderRides();
+  updateAll();
+  updateBadge();
+}
+
+function updateBadge() {
+  document.getElementById('shiftBadge').textContent = `乗務 #${document.getElementById('shiftNum').value}`;
+}
+
+function newRide() {
+  return { id: Date.now(), fare: '', endTime: '', breaks: [] };
+}
+
+function addRide() {
+  if (rides.length >= 10) { showToast('最大10組です', 'error'); return; }
+  const ride = newRide();
+  rides.push(ride);
+  renderRides();
+  updateAll();
+  setTimeout(() => openRide(ride.id), 50);
+}
+
+function removeRide(id) {
+  rides = rides.filter(r => r.id !== id);
+  renderRides();
+  updateAll();
+}
+
+function addBreak(rideId) {
+  const ride = rides.find(r => r.id === rideId);
+  if (!ride) return;
+  ride.breaks.push({ id: Date.now(), min: '' });
+  renderRides();
+  openRide(rideId);
+}
+
+function removeBreak(rideId, breakId) {
+  const ride = rides.find(r => r.id === rideId);
+  if (!ride) return;
+  ride.breaks = ride.breaks.filter(b => b.id !== breakId);
+  renderRides();
+  openRide(rideId);
+  updateAll();
+}
+
+function updateBreak(rideId, breakId, val) {
+  const ride = rides.find(r => r.id === rideId);
+  if (!ride) return;
+  const brk = ride.breaks.find(b => b.id === breakId);
+  if (brk) {
+    brk.min = val;
+    // バッジをリアルタイム更新
+    const total = ride.breaks.reduce((s,b) => s + (Number(b.min)||0), 0);
+    const badge = document.getElementById(`breaktotal-${rideId}`);
+    if (badge) badge.textContent = total > 0 ? `合計 ${total}分` : '0分';
+    // サマリー行も更新
+    const card = document.getElementById(`card-${rideId}`);
+    if (card) {
+      const summaryEl = card.querySelector('.ride-summary');
+      if (summaryEl && ride.fare && ride.endTime) {
+        const rideIdx = rides.indexOf(ride);
+        const prevF = rideIdx > 0 ? Number(rides[rideIdx-1].fare || 0) : 0;
+        const dispF = toExTax(Number(ride.fare || 0)) - toExTax(prevF);
+        summaryEl.textContent = `¥${dispF.toLocaleString()} / ${ride.endTime}${total > 0 ? ` / 休${total}分` : ''}`;
+      }
+    }
+    updateAll();
+  }
+}
+
+function renderRides() {
+  const list = document.getElementById('ridesList');
+  list.innerHTML = '';
+  rides.forEach((ride, idx) => {
+    const isDone = ride.fare && ride.endTime;
+    const totalBreak = ride.breaks.reduce((s,b) => s + (Number(b.min)||0), 0);
+    const div = document.createElement('div');
+    div.className = `ride-card${isDone ? ' completed' : ''}`;
+    div.id = `card-${ride.id}`;
+
+    // No.1は累計表示、No.2以降は差分表示
+    const prevFare = idx > 0 ? Number(rides[idx-1].fare || 0) : 0;
+    const displayFare = toExTax(Number(ride.fare || 0)) - toExTax(prevFare);
+    // No.1の累計休憩・累計実働を計算
+    let cumulBreak = 0;
+    for (let ci = 0; ci <= idx; ci++) cumulBreak += rides[ci].breaks.reduce((s,b) => s+(Number(b.min)||0), 0);
+    const shiftStartVal = document.getElementById('shiftStart') ? document.getElementById('shiftStart').value : '';
+    let cumulWork = '';
+    if (idx === 0 && shiftStartVal && ride.endTime) {
+      let cs = timeToMin(shiftStartVal), ce = timeToMin(ride.endTime);
+      if (ce < cs) ce += 1440;
+      const wm = ce - cs - cumulBreak;
+      cumulWork = `${Math.floor(wm/60)}h${String(wm%60).padStart(2,'0')}m`;
+    }
+    const summary = isDone
+      ? (idx === 0
+          ? `¥${toExTax(Number(ride.fare||0)).toLocaleString()} / ${cumulWork} / 休${cumulBreak}分`
+          : `¥${displayFare.toLocaleString()} / ${ride.endTime}${totalBreak > 0 ? ` / 休${totalBreak}分` : ''}`)
+      : '未入力';
+
+    // 休憩アイテムのHTML
+    const breaksHtml = ride.breaks.map((brk, bi) => `
+      <div class="break-item">
+        <span class="break-item-label">${bi+1}回目</span>
+        <input class="break-input" type="number" inputmode="numeric"
+          value="${brk.min}" placeholder="0"
+          oninput="updateBreak(${ride.id},${brk.id},this.value)"
+          onchange="updateBreak(${ride.id},${brk.id},this.value)">
+        <span class="break-input-unit">分</span>
+        <button class="break-remove" onclick="removeBreak(${ride.id},${brk.id})">×</button>
+      </div>
+    `).join('');
+
+    const breakTotalText = totalBreak > 0 ? `合計 ${totalBreak}分` : '0分';
+
+    div.innerHTML = `
+      <div class="ride-header" onclick="toggleRide(${ride.id})">
+        <span class="ride-num">No.${idx+1}</span>
+        <span class="ride-summary${isDone?' done':''}">${summary}</span>
+        <span class="ride-chevron" id="chev-${ride.id}">▼</span>
+      </div>
+      <div class="ride-body" id="body-${ride.id}">
+        <div class="ride-fields">
+          <div class="ride-field">
+            <label>売上（円・メーター累計・税込）</label>
+            <div class="fare-prefix">¥</div>
+            <input class="ride-input fare-input" type="number" inputmode="numeric"
+              value="${ride.fare}" placeholder="0"
+              oninput="updateRide(${ride.id},'fare',this.value)">
+          </div>
+          <div class="ride-field">
+            <label>終了時刻</label>
+            <input class="ride-input" type="time"
+              value="${ride.endTime}"
+              onchange="updateRide(${ride.id},'endTime',this.value)">
+          </div>
+        </div>
+
+        <div class="break-section">
+          <div class="break-section-header">
+            <span class="break-section-title">☕ 休憩</span>
+            <span class="break-total-badge" id="breaktotal-${ride.id}">${breakTotalText}</span>
+          </div>
+          <div class="break-list" id="breaklist-${ride.id}">
+            ${breaksHtml || '<div style="font-size:11px;color:var(--muted);">休憩なし</div>'}
+          </div>
+          <button class="break-add-btn" onclick="addBreak(${ride.id})">＋ 休憩を追加</button>
+        </div>
+
+        <div class="live-calc" id="live-${ride.id}" style="flex-direction:column;align-items:stretch;gap:6px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span class="live-label">実働時間</span>
+            <span class="live-value" id="livework-${ride.id}" style="color:var(--blue)">---</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span class="live-label">単価</span>
+            <span class="live-value" id="livetanka-${ride.id}">---</span>
+          </div>
+        </div>
+        <div class="action-row">
+          <button class="btn btn-now" onclick="setNow(${ride.id})">🕐 今すぐ</button>
+          <button class="btn btn-done" onclick="completeRide(${ride.id})">✓ 確定</button>
+          ${rides.length > 1 ? `<button class="btn btn-now btn-del" onclick="removeRide(${ride.id})">✕</button>` : ''}
+        </div>
+      </div>
+    `;
+    list.appendChild(div);
+  });
+
+  document.getElementById('ridesCount').textContent = `${rides.length} / 10組`;
+  rides.forEach(r => calcLive(r.id));
+}
+
+function toggleRide(id) {
+  const body = document.getElementById(`body-${id}`);
+  const chev = document.getElementById(`chev-${id}`);
+  const isOpen = body.classList.contains('open');
+  document.querySelectorAll('.ride-body').forEach(b => b.classList.remove('open'));
+  document.querySelectorAll('.ride-chevron').forEach(c => c.classList.remove('open'));
+  if (!isOpen) { body.classList.add('open'); chev.classList.add('open'); }
+}
+
+function openRide(id) {
+  document.querySelectorAll('.ride-body').forEach(b => b.classList.remove('open'));
+  document.querySelectorAll('.ride-chevron').forEach(c => c.classList.remove('open'));
+  const body = document.getElementById(`body-${id}`);
+  const chev = document.getElementById(`chev-${id}`);
+  if (body) { body.classList.add('open'); chev.classList.add('open'); }
+}
+
+function updateRide(id, field, val) {
+  const ride = rides.find(r => r.id === id);
+  if (ride) { ride[field] = val; updateAll(); }
+}
+
+function calcLive(id) {
+  const ride = rides.find(r => r.id === id);
+  if (!ride) return;
+
+  const idx = rides.indexOf(ride);
+  const shiftStart = document.getElementById('shiftStart').value;
+  const workEl = document.getElementById(`livework-${id}`);
+  const tankaEl = document.getElementById(`livetanka-${id}`);
+
+  // 前の組の終了時刻（またはシフト開始）からこの組の終了時刻までの実働時間
+  const prevEnd = idx === 0 ? shiftStart : (rides[idx-1].endTime || '');
+  const rideBreak = ride.breaks.reduce((s, b) => s + (Number(b.min)||0), 0);
+
+  if (prevEnd && ride.endTime) {
+    let s = timeToMin(prevEnd);
+    let e = timeToMin(ride.endTime);
+    if (e < s) e += 1440;
+    const workMin = e - s - rideBreak;
+    const hh = Math.floor(workMin / 60);
+    const mm = workMin % 60;
+    if (workEl) workEl.textContent = workMin > 0 ? `${hh}h${String(mm).padStart(2,'0')}m` : '---';
+  } else {
+    if (workEl) workEl.textContent = '---';
+  }
+
+  // この組だけの単価（差分売上 ÷ この組の実働時間）
+  const prevEnd2 = idx === 0 ? shiftStart : (rides[idx-1].endTime || '');
+  const prevFare = idx === 0 ? 0 : Number(rides[idx-1].fare || 0);
+  const thisFare = toExTax(Number(ride.fare || 0)) - toExTax(prevFare);
+
+  if (!ride.endTime || !ride.fare || !prevEnd2) {
+    if (tankaEl) tankaEl.textContent = '---';
+    return;
+  }
+  let s2 = timeToMin(prevEnd2);
+  let e2 = timeToMin(ride.endTime);
+  if (e2 < s2) e2 += 1440;
+  const workH = (e2 - s2 - rideBreak) / 60;
+  if (workH <= 0 || thisFare <= 0) { if (tankaEl) tankaEl.textContent = '---'; return; }
+  const tanka = Math.round(thisFare / workH);
+  if (tankaEl) tankaEl.textContent = `¥${tanka.toLocaleString()}/h`;
+}
+
+function setNow(id) {
+  const now = new Date();
+  const val = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  updateRide(id, 'endTime', val);
+  const input = document.querySelector(`#body-${id} input[type="time"]`);
+  if (input) input.value = val;
+}
+
+function completeRide(id) {
+  const ride = rides.find(r => r.id === id);
+  if (!ride.fare) { showToast('売上を入力してください', 'error'); return; }
+  if (!ride.endTime) setNow(id);
+  document.getElementById(`body-${id}`).classList.remove('open');
+  renderRides();
+  updateAll();
+  showToast(`No.${rides.indexOf(ride)+1} 確定！`);
+  if (rides.length < 10) setTimeout(() => addRide(), 300);
+}
+
+function updateAll() {
+  rides.forEach(r => calcLive(r.id));
+  updateSummary();
+  updateTimeline();
+  saveState();
+}
+
+function saveState() {
+  const state = {
+    shiftNum: document.getElementById('shiftNum').value,
+    shiftStart: document.getElementById('shiftStart').value,
+    shiftEnd: document.getElementById('shiftEnd').value,
+    rides: rides
+  };
+  localStorage.setItem('taxiState', JSON.stringify(state));
+}
+
+function loadState() {
+  const raw = localStorage.getItem('taxiState');
+  if (!raw) return false;
+  try {
+    const state = JSON.parse(raw);
+    if (state.shiftNum) document.getElementById('shiftNum').value = state.shiftNum;
+    if (state.shiftStart) document.getElementById('shiftStart').value = state.shiftStart;
+    if (state.shiftEnd) document.getElementById('shiftEnd').value = state.shiftEnd;
+    if (state.rides && state.rides.length > 0) {
+      rides = state.rides;
+      return true;
+    }
+  } catch(e) {}
+  return false;
+}
+
+function clearState() {
+  localStorage.removeItem('taxiState');
+}
+
+function updateSummary() {
+  const shiftStart = document.getElementById('shiftStart').value;
+  const shiftEnd = document.getElementById('shiftEnd').value;
+  // 累計売上は最後に入力された組のメーター値（最大値）
+  const fareValues = rides.map(r => Number(r.fare||0)).filter(v => v > 0);
+  const totalFare = fareValues.length > 0 ? toExTax(Math.max(...fareValues)) : 0;
+  const totalBreak = rides.reduce((s, r) => s + r.breaks.reduce((ss, b) => ss + (Number(b.min)||0), 0), 0);
+
+  document.getElementById('summaryFare').textContent = `¥${totalFare.toLocaleString()}`;
+  document.getElementById('summaryBreak').textContent = `${totalBreak}分`;
+
+  if (shiftStart && shiftEnd) {
+    let start = timeToMin(shiftStart);
+    let end = timeToMin(shiftEnd);
+    if (end < start) end += 1440;
+    const workMin = end - start - totalBreak;
+    const hh = Math.floor(workMin/60);
+    const mm = workMin % 60;
+    document.getElementById('summaryWork').textContent = `${hh}h${mm}m`;
+    if (workMin > 0 && totalFare > 0) {
+      document.getElementById('summaryTanka').textContent = `¥${Math.round(totalFare/(workMin/60)).toLocaleString()}/h`;
+    } else {
+      document.getElementById('summaryTanka').textContent = '---';
+    }
+  } else {
+    document.getElementById('summaryWork').textContent = '--:--';
+    document.getElementById('summaryTanka').textContent = '---';
+  }
+}
+
+function updateTimeline() {
+  const tl = document.getElementById('timelineList');
+  const items = [];
+  rides.forEach((ride, idx) => {
+    ride.breaks.forEach((brk, bi) => {
+      if (Number(brk.min) > 0) {
+        items.push({ label: `No.${idx+1}(${bi+1}回目)`, min: Number(brk.min) });
+      }
+    });
+  });
+
+  if (items.length === 0) {
+    tl.innerHTML = '<div class="timeline-empty">休憩を入力すると表示されます</div>';
+    return;
+  }
+
+  tl.innerHTML = items.map(item => `
+    <div class="timeline-item">
+      <div class="timeline-dot"></div>
+      <span class="timeline-text">${item.label}</span>
+      <span class="timeline-min">${item.min}分</span>
+    </div>
+  `).join('');
+}
+
+async function submitToSheets() {
+  const gasUrl = settings.gasUrl;
+  if (!gasUrl) { openModal(); showToast('GAS URLを設定してください', 'error'); return; }
+
+  const shiftStart = document.getElementById('shiftStart').value;
+  const shiftEnd = document.getElementById('shiftEnd').value;
+  const shiftNum = document.getElementById('shiftNum').value;
+
+  if (!shiftStart) { showToast('開始時刻を入力してください', 'error'); return; }
+  const completedRides = rides.filter(r => r.fare);
+  if (completedRides.length === 0) { showToast('売上データがありません', 'error'); return; }
+
+  const now = new Date();
+  const days = ['日','月','火','水','木','金','土'];
+  const dateStr = `${now.getMonth()+1}月${now.getDate()}日(${days[now.getDay()]})`;
+  // 最後の組のメーター値が累計売上
+  const fareVals = completedRides.map(r => Number(r.fare||0)).filter(v => v > 0);
+  const totalFare = fareVals.length > 0 ? toExTax(Math.max(...fareVals)) : 0;
+  const totalBreak = rides.reduce((s,r) => s + r.breaks.reduce((ss,b) => ss+(Number(b.min)||0), 0), 0);
+
+  const payload = {
+    shiftNum: Number(shiftNum),
+    date: dateStr,
+    shiftStart,
+    shiftEnd,
+    totalBreakMin: totalBreak,
+    totalFare,
+    rides: completedRides.map((r, i) => ({
+      index: i+1,
+      fare: Number(r.fare),
+      endTime: r.endTime,
+      breaks: r.breaks.filter(b => Number(b.min) > 0).map(b => Number(b.min))
+    }))
+  };
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = '送信中...';
+
+  try {
+    await fetch(gasUrl, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    showToast('✅ スプレッドシートに記録しました！');
+    btn.textContent = '✅ 送信完了！';
+    clearState();
+    const nextNum = Number(shiftNum) + 1;
+    document.getElementById('shiftNum').value = nextNum;
+    settings.shiftNum = nextNum;
+    localStorage.setItem('taxiSettings2', JSON.stringify(settings));
+    updateBadge();
+    setTimeout(() => { btn.disabled = false; btn.textContent = '📊 Googleスプレッドシートに記録'; }, 3000);
+  } catch(e) {
+    showToast('送信エラー。GAS URLを確認してください', 'error');
+    btn.disabled = false;
+    btn.textContent = '📊 Googleスプレッドシートに記録';
+  }
+}
+
+function openModal() { document.getElementById('modalOverlay').classList.add('open'); }
+function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
+function closeModalOnOverlay(e) { if (e.target === document.getElementById('modalOverlay')) closeModal(); }
+function saveSettings() {
+  settings.gasUrl = document.getElementById('gasUrl').value.trim();
+  settings.sheetId = document.getElementById('sheetId').value.trim();
+  localStorage.setItem('taxiSettings2', JSON.stringify(settings));
+  closeModal();
+  showToast('設定を保存しました');
+}
+
+function timeToMin(t) {
+  if (!t) return 0;
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+}
+
+const TAX_RATE = 0.10;
+function toExTax(v) { return Math.round(Number(v) / (1 + TAX_RATE)); }
+
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast${type === 'error' ? ' error' : ''} show`;
+  setTimeout(() => { t.className = `toast${type === 'error' ? ' error' : ''}`; }, 2500);
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+
+<!-- GAS設定ガイド -->
+<div style="margin:0 16px 30px;background:#161618;border:1px solid #2a2a2e;border-radius:12px;padding:16px;">
+  <div style="font-size:12px;font-weight:700;color:#f0b429;margin-bottom:12px;letter-spacing:0.06em;">📋 GAS設定手順（初回のみ）</div>
+  <div style="font-size:12px;color:#9999a0;line-height:1.8;">
+    <b style="color:#f0f0f0;">1.</b> <a href="https://script.google.com" target="_blank" style="color:#f0b429;">script.google.com</a> を開く<br>
+    <b style="color:#f0f0f0;">2.</b> 「新しいプロジェクト」を作成<br>
+    <b style="color:#f0f0f0;">3.</b> 下のコードを貼り付けて保存<br>
+    <b style="color:#f0f0f0;">4.</b> 「デプロイ」→「新しいデプロイ」→「ウェブアプリ」<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;アクセス権限：<b style="color:#f0f0f0;">全員</b> に設定<br>
+    <b style="color:#f0f0f0;">5.</b> 表示されたURLを⚙️設定に貼り付け
+  </div>
+  <div style="background:#0d0d0f;border-radius:8px;padding:12px;margin-top:12px;overflow-x:auto;">
+    <pre style="font-family:'DM Mono',monospace;font-size:10px;color:#9999a0;white-space:pre;line-height:1.6;">const SHEET_ID = 'あなたのスプレッドシートID';
+const SHEET_NAME = '入力';
+
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+    const ss = SpreadsheetApp.openById(SHEET_ID);
+    let sheet = ss.getSheetByName(SHEET_NAME);
+    if (!sheet) sheet = ss.insertSheet(SHEET_NAME);
+
+    // 休憩の内訳を文字列化
+    const breakDetail = data.rides.map((r,i) =>
+      r.breaks.length > 0 ? `${i+1}組後:${r.breaks.join('+')}分` : ''
+    ).filter(Boolean).join(' / ');
+
+    const row = [
+      new Date(),
+      data.shiftNum,
+      data.date,
+      data.shiftStart,
+      data.shiftEnd,
+      data.totalBreakMin,
+      breakDetail,
+      data.totalFare,
+      data.rides.length
+    ];
+    sheet.appendRow(row);
+
+    return ContentService
+      .createTextOutput(JSON.stringify({status:'ok'}))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService
+      .createTextOutput(JSON.stringify({status:'error',msg:err.message}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}</pre>
+  </div>
+</div>
+
+</body>
+</html>
